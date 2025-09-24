@@ -41,7 +41,7 @@ Follow these steps to set up the environment and database.
 
 **Step 1: Clone the Repository**
 ```bash
-git clone [https://github.com/GitHub-AmanBhardwaj/Calypso.git](https://github.com/GitHub-AmanBhardwaj/Calypso.git)
+git clone https://github.com/GitHub-AmanBhardwaj/Calypso.git
 cd Calypso
 ```
 
