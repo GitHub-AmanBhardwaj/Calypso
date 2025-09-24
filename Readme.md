@@ -6,17 +6,15 @@
 
 ## 1. Overview
 
-This project provides a robust and efficient pipeline for parsing oceanographic data from ARGO Core profile NetCDF files and ingesting it into a structured PostgreSQL database. The goal is to transform complex, multi-dimensional scientific data into a queryable, relational format, making it accessible for analysis, visualization, and use in applications like the Calypso chatbot.
-
-This pipeline was successfully used to process 5 years of historical ARGO data from **1999 to 2004**.
+This project provides a robust and efficient pipeline for parsing oceanographic data from ARGO Core profile NetCDF files and ingesting it into a structured PostgreSQL database. The goal is to transform complex, multi-dimensional scientific data into a queryable, relational format, making it accessible for analysis and visualization.
 
 ## 2. Key Features
 
--   **Efficient Parsing:** Reads and processes standard multi-profile ARGO NetCDF files.
--   **Relational Schema:** Creates a clean and logical database schema with separate tables for profile metadata and measurements.
--   **Data Integrity:** Includes checks to prevent duplicate profile entries.
--   **Quality Control:** Filters measurements based on the official ARGO quality control flags to ensure data reliability.
--   **Scalable:** Designed to process large directories of NetCDF files efficiently.
+-   **Efficient Parsing:** Reads and processes standard multi-profile ARGO NetCDF files using `xarray`.
+-   **Relational Schema:** Creates a clean and logical database schema from the `db_setup.sql` file.
+-   **Data Integrity:** Includes a `_profile_exists` function to check for duplicates based on platform and cycle number before insertion.
+-   **Quality Control:** Filters measurements based on official ARGO quality control flags (`TEMP_QC`, `PSAL_QC`, etc.) to ensure data reliability.
+-   **Bulk Insertion:** Uses `psycopg2.extras.execute_values` for efficient batch insertion of measurement data.
 
 ## 3. Project Structure
 
@@ -26,7 +24,6 @@ The repository is organized as follows:
 .
 ├── convertor.py        # The main Python script for data ingestion
 ├── db_setup.sql        # SQL script to initialize the database schema
-├── 5_year_data/        # Example folder for storing source NetCDF files
 ├── requirements.txt    # A file listing the required Python libraries
 └── README.md           # This documentation file
 ```
@@ -65,16 +62,16 @@ netcdf4
 ```
 
 **Step 3: Configure PostgreSQL**
-1.  Create a new database and user.
+1.  Create a new database and user that match the script's configuration.
     ```sql
     CREATE DATABASE argo_db;
-    CREATE USER argo_user WITH PASSWORD 'your_secure_password';
+    CREATE USER argo_user WITH PASSWORD 'amanjeet';
     GRANT ALL PRIVILEGES ON DATABASE argo_db TO argo_user;
     ```
-2.  Update the database connection details in the `DB_CONFIG` dictionary at the top of `convertor.py`.
+2.  The connection details are configured in the `DB_CONFIG` dictionary within `convertor.py`.
 
 **Step 4: Initialize the Database Schema**
-Run the setup script using `psql`. This will create the `argo_profiles` and `ocean_measurements` tables.
+Run the setup script using `psql`. This will create the necessary tables and indexes.
 ```bash
 psql -h localhost -d argo_db -U argo_user -f db_setup.sql
 ```
@@ -83,39 +80,41 @@ psql -h localhost -d argo_db -U argo_user -f db_setup.sql
 
 To run the ingestion pipeline:
 
-1.  Place your ARGO NetCDF (`.nc`) files inside a directory (e.g., `5_year_data`).
-2.  Execute the `convertor.py` script from your terminal, passing the path to your data directory as an argument.
+1.  Place your ARGO NetCDF (`.nc`) files inside a directory.
+2.  Execute the `convertor.py` script from your terminal, passing the path to your data directory as a command-line argument.
 
 ```bash
-python convertor.py ./5_year_data
+python convertor.py /path/to/your/data_folder
 ```
 The script will display a progress bar as it processes the files.
 
 ## 7. Database Schema
 
-The pipeline creates two main tables:
+The pipeline creates two main tables as defined in `db_setup.sql`.
 
 #### `argo_profiles`
 Stores the metadata for each unique float profile.
-| Column | Type | Description |
-| :--- | :--- | :--- |
-| `profile_id` | SERIAL PRIMARY KEY | Unique identifier for each profile. |
-| `platform_number` | INTEGER | The unique WMO ID of the ARGO float. |
-| `cycle_number` | INTEGER | The measurement cycle number for the float. |
-| `profile_timestamp` | TIMESTAMP | The date and time of the measurement. |
-| `latitude` | DOUBLE PRECISION | The latitude of the measurement. |
-| `longitude` | DOUBLE PRECISION | The longitude of the measurement. |
+| Column | Type | Constraints | Description |
+| :--- | :--- | :--- | :--- |
+| `profile_id` | SERIAL | PRIMARY KEY | Unique identifier for each profile. |
+| `platform_number` | INT | NOT NULL | The unique WMO ID of the ARGO float. |
+| `cycle_number` | INT | NOT NULL | The measurement cycle number for the float. |
+| `profile_timestamp` | TIMESTAMP WITH TIME ZONE | | The date and time of the measurement. |
+| `latitude` | REAL | | The latitude of the measurement. |
+| `longitude` | REAL | | The longitude of the measurement. |
+*A `UNIQUE` constraint is applied to `(platform_number, cycle_number)` to prevent duplicates.*
 
 #### `ocean_measurements`
 Stores the individual sensor readings for each profile.
-| Column | Type | Description |
-| :--- | :--- | :--- |
-| `measurement_id`| SERIAL PRIMARY KEY | Unique identifier for the measurement. |
-| `profile_id` | INTEGER (FOREIGN KEY)| Links to the `argo_profiles` table. |
-| `pressure_dbar` | DOUBLE PRECISION | Pressure in decibars (depth). |
-| `temperature_celsius`| DOUBLE PRECISION | Temperature in Celsius. |
-| `salinity_psu` | DOUBLE PRECISION | Salinity in Practical Salinity Units. |
+| Column | Type | Constraints | Description |
+| :--- | :--- | :--- | :--- |
+| `measurement_id`| SERIAL | PRIMARY KEY | Unique identifier for the measurement. |
+| `profile_id` | INT | FOREIGN KEY | Links to the `argo_profiles` table. |
+| `pressure_dbar` | REAL | | Pressure in decibars (depth). |
+| `temperature_celsius`| REAL | | Temperature in Celsius. |
+| `salinity_psu` | REAL | | Salinity in Practical Salinity Units. |
+*Indexes are created on `profile_id` and `platform_number` for faster query performance.*
 
 ## 8. License
 
-This project is licensed under the MIT License - see the `LICENSE` file for details.
+This project is licensed under the MIT License.
