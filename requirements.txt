@@ -1,0 +1,8 @@
+# This file lists the Python dependencies for the ARGO data convertor.
+# Install them using: pip install -r requirements.txt
+
+psycopg2-binary  # For connecting to the PostgreSQL database
+pandas           # For data manipulation and creating DataFrames
+xarray           # For reading and processing NetCDF files
+netcdf4          # A required backend engine for xarray to handle .nc files
+tqdm             # For creating the progress bar
