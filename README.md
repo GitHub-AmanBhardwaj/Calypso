@@ -52,14 +52,6 @@ python -m venv venv
 source venv/bin/activate  # On Windows, use `venv\Scripts\activate`
 pip install -r requirements.txt
 ```
-*Your `requirements.txt` file should contain:*
-```
-psycopg2-binary
-xarray
-pandas
-tqdm
-netcdf4
-```
 
 **Step 3: Configure PostgreSQL**
 1.  Create a new database and user that match the script's configuration.
